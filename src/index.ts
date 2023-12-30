@@ -85,10 +85,12 @@ async function updateTranactions(transations: Transaction[]) {
 
 async function deleteTransactions(transations: RemovedTransaction[]) {
   for (const transaction of transations) {
-    const { data, error } = await supabase.from("transactions").upsert({
-      transaction_id: transaction.transaction_id,
-      deleted: true,
-    });
+    const { data, error } = await supabase
+      .from("transactions")
+      .update({
+        deleted: true,
+      })
+      .eq("transaction_id", transaction.transaction_id);
 
     if (error) console.log(error);
   }
@@ -157,13 +159,21 @@ async function main() {
 
   const items = await getItems();
 
+  // TESTDATA
+  // const items = [
+  //   {
+  //     name: "old tangerine",
+  //     access_token: "bad",
+  //   },
+  // ];
+
   if (!items) {
     console.log("no items");
     return;
   }
 
   for (const item of items) {
-    //await listAccounts(item)
+    //await listAccounts(item);
     await processItem(item);
   }
 
