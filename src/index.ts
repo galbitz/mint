@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import util from "util";
 import { createClient } from "@supabase/supabase-js";
 
 const PLAID_CLIENT_ID = process.env.PLAID_CLIENT_ID;
@@ -48,11 +47,42 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   },
 });
 
-const prettyPrintResponse = (response: any) => {
-  console.log(util.inspect(response.data, { colors: true, depth: 4 }));
-};
-
 await main();
+
+async function main() {
+  console.log("Start");
+
+  const items = await getItems();
+
+  // TESTDATA
+  // const items = [
+  //   {
+  //     name: "old tangerine",
+  //     access_token: "bad",
+  //   },
+  // ];
+
+  if (!items) {
+    console.log("no items");
+    return;
+  }
+
+  console.log("Getting balances");
+  for (const item of items) {
+    if (!(await getBalance(item))) {
+      console.log("Failed getting balance. Exiting");
+      return;
+    }
+  }
+
+  console.log("Processing items");
+  for (const item of items) {
+    //await listAccounts(item);
+    await processItem(item);
+  }
+
+  console.log("Ended successfully");
+}
 
 async function getItems() {
   return (await supabase.from("items").select("*")).data;
@@ -74,7 +104,6 @@ async function updateTranactions(transations: Transaction[]) {
       transaction_id: transaction.transaction_id,
       account_id: transaction.account_id,
       amount: transaction.amount,
-      category: "",
       date: transaction.date,
       extra: JSON.stringify(transaction, null, 2),
       name: transaction.name,
@@ -154,28 +183,19 @@ async function setCursor(item_id: string, value: string | undefined) {
     .upsert({ item_id: item_id, value: value });
 }
 
-async function main() {
-  console.log("Start");
-
-  const items = await getItems();
-
-  // TESTDATA
-  // const items = [
-  //   {
-  //     name: "old tangerine",
-  //     access_token: "bad",
-  //   },
-  // ];
-
-  if (!items) {
-    console.log("no items");
-    return;
+async function getBalance(item: any) {
+  console.log("Getting balance for item: ", item.name);
+  try {
+    const response = await client.accountsBalanceGet({
+      access_token: item.access_token,
+    });
+    for (const account of response.data.accounts) {
+      console.log(account.name, account.balances.current);
+    }
+    return true;
+  } catch (e: any) {
+    console.log("Error code: ", e.response.data.error_code);
+    console.log("Error message: ", e.response.data.error_message);
+    return false;
   }
-
-  for (const item of items) {
-    //await listAccounts(item);
-    await processItem(item);
-  }
-
-  console.log("End");
 }
